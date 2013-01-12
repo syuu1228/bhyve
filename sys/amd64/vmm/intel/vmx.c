@@ -1313,6 +1313,9 @@ vmx_exit_process(struct vmx *vmx, int vcpu, struct vm_exit *vmexit)
 			vmexit->u.paging.gpa = gpa;
 		}
 		break;
+	case EXIT_REASON_VMCALL:
+		vmexit->exitcode = VM_EXITCODE_HYPERCALL;
+		break;
 	default:
 		break;
 	}
@@ -1791,10 +1794,22 @@ vmx_setcap(void *arg, int vcpu, int type, int val)
 		break;
 	case VM_CAP_UNRESTRICTED_GUEST:
 		if (cap_unrestricted_guest) {
+			uint64_t ctls;
+
 			retval = 0;
 			baseval = procbased_ctls2;
 			flag = PROCBASED2_UNRESTRICTED_GUEST;
 			reg = VMCS_SEC_PROC_BASED_CTLS;
+			error = vmcs_getreg(vmcs,
+				    VMCS_IDENT(VMCS_ENTRY_CTLS), &ctls);
+			if (error == 0) {
+				ctls &= ~(VM_ENTRY_LOAD_EFER | VM_ENTRY_GUEST_LMA);
+				vmcs_setreg(vmcs,
+				    	VMCS_IDENT(VMCS_ENTRY_CTLS), ctls);
+			}else{
+				printf("%s vmcs_getreg returns %d\n",
+					__func__, error);
+			}
 		}
 		break;
 	default:

@@ -17,8 +17,8 @@ SRCS+=	vmm_instruction_emul.c
 
 NO_MAN=
 
-DPADD=	${LIBVMMAPI} ${LIBUDIS86} ${LIBMD} ${LIBPTHREAD}
-LDADD=	-lvmmapi -ludis86 -lmd -lpthread
+DPADD=	${LIBVMMAPI} ${LIBUDIS86} ${LIBBIOSEMUL} ${LIBMD} ${LIBPTHREAD}
+LDADD=	-lvmmapi -ludis86 -lbiosemul -lmd -lpthread
 
 WARNS?=	2
 

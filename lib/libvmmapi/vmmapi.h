@@ -103,6 +103,11 @@ int	vm_setup_freebsd_registers(struct vmctx *ctx, int vcpu,
 				uint64_t rsp);
 void	vm_setup_freebsd_gdt(uint64_t *gdtr);
 
+/*
+ * BIOS boot specific APIs
+ */
+int	vm_setup_bios_registers(struct vmctx *ctx, int vcpu);
+
 
 int	vm_set_exception_bitmap(struct vmctx *ctx, int vcpu, uint32_t bits);
 #endif	/* _VMMAPI_H_ */

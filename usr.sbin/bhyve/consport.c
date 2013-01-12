@@ -44,6 +44,7 @@ __FBSDID("$FreeBSD$");
 #define	BVM_CONS_SIG		('b' << 8 | 'v')
 
 static struct termios tio_orig, tio_new;
+int console_opened = 0;
 
 static void
 ttyclose(void)
@@ -51,7 +52,7 @@ ttyclose(void)
 	tcsetattr(STDIN_FILENO, TCSANOW, &tio_orig);
 }
 
-static void
+void
 ttyopen(void)
 {
 	tcgetattr(STDIN_FILENO, &tio_orig);
@@ -79,7 +80,7 @@ tty_char_available(void)
 	}
 }
 
-static int
+int
 ttyread(void)
 {
 	char rb;
@@ -92,7 +93,7 @@ ttyread(void)
 	}
 }
 
-static void
+void
 ttywrite(unsigned char wb)
 {
 	(void) write(STDOUT_FILENO, &wb, 1);
@@ -102,8 +103,6 @@ static int
 console_handler(struct vmctx *ctx, int vcpu, int in, int port, int bytes,
 		uint32_t *eax, void *arg)
 {
-	static int opened;
-
 	if (bytes == 2 && in) {
 		*eax = BVM_CONS_SIG;
 		return (0);
@@ -112,9 +111,9 @@ console_handler(struct vmctx *ctx, int vcpu, int in, int port, int bytes,
 	if (bytes != 4)
 		return (-1);
 
-	if (!opened) {
+	if (!console_opened) {
 		ttyopen();
-		opened = 1;
+		console_opened = 1;
 	}
 	
 	if (in)

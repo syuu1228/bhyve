@@ -13,6 +13,7 @@ SUBDIR+=	asf
 SUBDIR+=	bhyve
 SUBDIR+=	bhyvectl
 SUBDIR+=	bhyveload
+SUBDIR+=	bhyvebiosload
 SUBDIR+=	boot0cfg
 .if ${MK_TOOLCHAIN} != "no"
 SUBDIR+=	btxld
