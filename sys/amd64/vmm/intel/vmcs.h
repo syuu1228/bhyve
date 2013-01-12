@@ -59,12 +59,14 @@ int	vmcs_getdesc(struct vmcs *vmcs, int ident,
 int	vmcs_setdesc(struct vmcs *vmcs, int ident,
 		     struct seg_desc *desc);
 uint64_t vmcs_read(uint32_t encoding);
+int	vmcs_setexcbitmap(struct vmcs *vmcs, uint32_t bits);
 
 #define	vmexit_instruction_length()	vmcs_read(VMCS_EXIT_INSTRUCTION_LENGTH)
 #define	vmcs_guest_rip()		vmcs_read(VMCS_GUEST_RIP)
 #define	vmcs_instruction_error()	vmcs_read(VMCS_INSTRUCTION_ERROR)
 #define	vmcs_exit_reason()		(vmcs_read(VMCS_EXIT_REASON) & 0xffff)
 #define	vmcs_exit_qualification()	vmcs_read(VMCS_EXIT_QUALIFICATION)
+#define vmcs_exit_interruption_info()	vmcs_read(VMCS_EXIT_INTERRUPTION_INFO)
 #define	vmcs_guest_cr3()		vmcs_read(VMCS_GUEST_CR3)
 #define	vmcs_gpa()			vmcs_read(VMCS_GUEST_PHYSICAL_ADDRESS)
 #define	vmcs_gla()			vmcs_read(VMCS_GUEST_LINEAR_ADDRESS)

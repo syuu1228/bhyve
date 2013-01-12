@@ -157,6 +157,7 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 	struct vm_stats *vmstats;
 	struct vm_stat_desc *statdesc;
 	struct vm_x2apic *x2apic;
+	struct vm_exc_bitmap *exc_bit;
 
 	sc = vmmdev_lookup2(cdev);
 	if (sc == NULL)
@@ -181,6 +182,7 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 	case VM_PPTDEV_MSI:
 	case VM_PPTDEV_MSIX:
 	case VM_SET_X2APIC_STATE:
+	case VM_SET_EXCEPTION_BITMAP:
 		/*
 		 * XXX fragile, handle with care
 		 * Assumes that the first field of the ioctl data is the vcpu.
@@ -364,6 +366,11 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 		x2apic = (struct vm_x2apic *)data;
 		error = vm_get_x2apic_state(sc->vm,
 					    x2apic->cpuid, &x2apic->state);
+		break;
+	case VM_SET_EXCEPTION_BITMAP:
+		exc_bit = (struct vm_exc_bitmap *)data;
+		error = vm_set_exception_bitmap(sc->vm,
+					    exc_bit->cpuid, exc_bit->bits);
 		break;
 	default:
 		error = ENOTTY;

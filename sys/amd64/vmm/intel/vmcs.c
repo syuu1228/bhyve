@@ -549,3 +549,21 @@ DB_SHOW_COMMAND(vmcs, db_show_vmcs)
 	db_printf("VM-instruction error: %#lx\n", vmcs_instruction_error());
 }
 #endif
+
+int
+vmcs_setexcbitmap(struct vmcs *vmcs, uint32_t bits)
+{
+	uint64_t exc_bitmap;
+	int error;
+
+	VMPTRLD(vmcs);
+	if ((error = vmread(VMCS_EXCEPTION_BITMAP, &exc_bitmap)) != 0)
+		goto done;
+	exc_bitmap |= bits;
+	error = vmwrite(VMCS_EXCEPTION_BITMAP, exc_bitmap);
+done:
+	VMCLEAR(vmcs);
+	return (error);
+}
+
+

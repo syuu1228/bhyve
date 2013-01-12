@@ -1210,6 +1210,12 @@ vmx_exit_process(struct vmx *vmx, int vcpu, struct vm_exit *vmexit)
 	vmexit->exitcode = VM_EXITCODE_BOGUS;
 
 	switch (vmexit->u.vmx.exit_reason) {
+	case EXIT_REASON_EXCEPTION:
+		vmexit->exitcode = VM_EXITCODE_EXCEPTION;
+		intr_info = vmcs_exit_interruption_info();
+		vmexit->u.vmx.exit_interruption_vector = intr_info & 0xf;
+		vmexit->u.vmx.exit_interruption_type = (intr_info >> 8) & 0x7;
+		break;
 	case EXIT_REASON_CR_ACCESS:
 		handled = vmx_emulate_cr_access(vmx, vcpu, qual);
 		break;
@@ -1827,6 +1833,26 @@ vmx_setcap(void *arg, int vcpu, int type, int val)
         return (retval);
 }
 
+static int
+vmx_setexcbitmap(void *arg, int vcpu, uint32_t bits)
+{
+	int error;
+	struct vmx *vmx = arg;
+
+	/*
+	 * If the vcpu is running then don't mess with the VMCS.
+	 *
+	 * vmcs_setexcbitmap will VMCLEAR the vmcs when it is done which will cause
+	 * the subsequent vmlaunch/vmresume to fail.
+	 */
+	if (vcpu_is_running(vmx->vm, vcpu))
+		panic("vmx_setexcbitmap: %s%d is running", vm_name(vmx->vm), vcpu);
+
+	error = vmcs_setexcbitmap(&vmx->vmcs[vcpu], bits);
+
+	return (error);
+}
+
 struct vmm_ops vmm_ops_intel = {
 	vmx_init,
 	vmx_cleanup,
@@ -1841,5 +1867,6 @@ struct vmm_ops vmm_ops_intel = {
 	vmx_setdesc,
 	vmx_inject,
 	vmx_getcap,
-	vmx_setcap
+	vmx_setcap,
+	vmx_setexcbitmap
 };

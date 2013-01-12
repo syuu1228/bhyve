@@ -144,6 +144,8 @@ static struct vmm_ops *ops;
 	(ops != NULL ? (*ops->vmgetcap)(vmi, vcpu, num, retval) : ENXIO)
 #define	VMSETCAP(vmi, vcpu, num, val)		\
 	(ops != NULL ? (*ops->vmsetcap)(vmi, vcpu, num, val) : ENXIO)
+#define	VMSETEXCBITMAP(vmi, vcpu, bits)		\
+	(ops != NULL ? (*ops->vmsetexcbitmap)(vmi, vcpu, bits) : ENXIO)
 
 #define	fpu_start_emulating()	load_cr0(rcr0() | CR0_TS)
 #define	fpu_stop_emulating()	clts()
@@ -1020,3 +1022,14 @@ vm_interrupt_hostcpu(struct vm *vm, int vcpuid)
 	}
 	vcpu_unlock(vcpu);
 }
+
+int
+vm_set_exception_bitmap(struct vm *vm, int vcpu, uint32_t bits)
+{
+
+	if (vcpu < 0 || vcpu >= VM_MAXCPU)
+		return (EINVAL);
+
+	return (VMSETEXCBITMAP(vm->cookie, vcpu, bits));
+}
+

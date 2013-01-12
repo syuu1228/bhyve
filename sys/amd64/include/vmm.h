@@ -65,6 +65,7 @@ typedef int	(*vmi_inject_event_t)(void *vmi, int vcpu,
 				      uint32_t code, int code_valid);
 typedef int	(*vmi_get_cap_t)(void *vmi, int vcpu, int num, int *retval);
 typedef int	(*vmi_set_cap_t)(void *vmi, int vcpu, int num, int val);
+typedef int	(*vmi_set_exc_bitmap_t)(void *vmi, int vcpu, uint32_t bits);
 
 struct vmm_ops {
 	vmm_init_func_t		init;		/* module wide initialization */
@@ -82,6 +83,7 @@ struct vmm_ops {
 	vmi_inject_event_t	vminject;
 	vmi_get_cap_t		vmgetcap;
 	vmi_set_cap_t		vmsetcap;
+	vmi_set_exc_bitmap_t	vmsetexcbitmap;
 };
 
 extern struct vmm_ops vmm_ops_intel;
@@ -119,6 +121,7 @@ int vm_set_x2apic_state(struct vm *vm, int vcpu, enum x2apic_state state);
 void vm_activate_cpu(struct vm *vm, int vcpu);
 cpuset_t vm_active_cpus(struct vm *vm);
 struct vm_exit *vm_exitinfo(struct vm *vm, int vcpuid);
+int vm_set_exception_bitmap(struct vm *vm, int vcpu, uint32_t bits);
 
 /*
  * Return 1 if device indicated by bus/slot/func is supposed to be a
@@ -250,6 +253,7 @@ enum vm_exitcode {
 	VM_EXITCODE_PAUSE,
 	VM_EXITCODE_PAGING,
 	VM_EXITCODE_SPINUP_AP,
+	VM_EXITCODE_EXCEPTION,
 	VM_EXITCODE_MAX
 };
 
@@ -278,6 +282,8 @@ struct vm_exit {
 			int		error;		/* vmx inst error */
 			uint32_t	exit_reason;
 			uint64_t	exit_qualification;
+			uint8_t		exit_interruption_vector;
+			uint8_t		exit_interruption_type;
 		} vmx;
 		struct {
 			uint32_t	code;		/* ecx value */

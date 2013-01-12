@@ -721,3 +721,18 @@ vcpu_reset(struct vmctx *vmctx, int vcpu)
 done:
 	return (error);
 }
+
+int
+vm_set_exception_bitmap(struct vmctx *ctx, int vcpu, uint32_t bits)
+{
+	int error;
+	struct vm_exc_bitmap exc_bit;
+
+	bzero(&exc_bit, sizeof(exc_bit));
+	exc_bit.cpuid = vcpu;
+	exc_bit.bits = bits;
+
+	error = ioctl(ctx->fd, VM_SET_EXCEPTION_BITMAP, &exc_bit);
+	return (error);
+}
+

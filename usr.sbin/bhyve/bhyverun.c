@@ -47,6 +47,8 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/vmm.h>
 #include <vmmapi.h>
+#include <machine/specialreg.h>
+#include <udis86/udis86.h>
 
 #include "bhyverun.h"
 #include "acpi.h"
@@ -102,6 +104,8 @@ static char *progname;
 static const int BSP = 0;
 
 static int cpumask;
+static int trace_on;
+static FILE *trace_log;
 
 static void vm_loop(struct vmctx *ctx, int vcpu, uint64_t rip);
 
@@ -130,7 +134,7 @@ usage(int code)
 {
 
         fprintf(stderr,
-                "Usage: %s [-aehABHIP][-g <gdb port>][-z <hz>][-s <pci>]"
+                "Usage: %s [-aehABHIPT][-g <gdb port>][-z <hz>][-s <pci>]"
 		"[-S <pci>][-p pincpu][-n <pci>][-m lowmem][-M highmem] <vm>\n"
 		"       -a: local apic is in XAPIC mode (default is X2APIC)\n"
 		"       -A: create an ACPI table\n"
@@ -141,6 +145,7 @@ usage(int code)
 		"       -H: vmexit from the guest on hlt\n"
 		"       -I: present an ioapic to the guest\n"
 		"       -P: vmexit from the guest on pause\n"
+		"       -T: enable instruction level tracer\n"
 		"	-e: exit on unhandled i/o access\n"
 		"       -h: help\n"
 		"       -z: guest hz (default is %d)\n"
@@ -375,6 +380,82 @@ vmexit_spinup_ap(struct vmctx *ctx, struct vm_exit *vme, int *pvcpu)
 }
 
 static int
+vmexit_exception(struct vmctx *ctx, struct vm_exit *vme, int *pvcpu)
+{
+	int error, mode, skip_trace = 0;
+	ud_t ud_obj;
+	uint64_t rsp, cr0, rflags, rax, rbx, rcx, rdx, cs, ds, ss;
+
+	if (!trace_on) 
+		return (VMEXIT_ABORT);
+
+	error = vm_get_register(ctx, *pvcpu, VM_REG_GUEST_RFLAGS, &rflags);
+	assert(error == 0);
+	rflags |= 0x100; /* Trap Flag */
+	error = vm_set_register(ctx, *pvcpu, VM_REG_GUEST_RFLAGS, rflags);
+	assert(error == 0);
+	error = vm_get_register(ctx, *pvcpu, VM_REG_GUEST_CR0, &cr0);
+	assert(error == 0);
+	error = vm_get_register(ctx, *pvcpu, VM_REG_GUEST_RSP, &rsp);
+	assert(error == 0);
+	error = vm_get_register(ctx, *pvcpu, VM_REG_GUEST_RAX, &rax);
+	assert(error == 0);
+	error = vm_get_register(ctx, *pvcpu, VM_REG_GUEST_RBX, &rbx);
+	assert(error == 0);
+	error = vm_get_register(ctx, *pvcpu, VM_REG_GUEST_RCX, &rcx);
+	assert(error == 0);
+	error = vm_get_register(ctx, *pvcpu, VM_REG_GUEST_RDX, &rdx);
+	assert(error == 0);
+	error = vm_get_register(ctx, *pvcpu, VM_REG_GUEST_CS, &cs);
+	assert(error == 0);
+	error = vm_get_register(ctx, *pvcpu, VM_REG_GUEST_DS, &ds);
+	assert(error == 0);
+	error = vm_get_register(ctx, *pvcpu, VM_REG_GUEST_SS, &ss);
+	assert(error == 0);
+
+	ud_init(&ud_obj);
+	ud_set_syntax(&ud_obj, UD_SYN_ATT);
+	ud_set_vendor(&ud_obj, UD_VENDOR_INTEL);
+	if (cr0 & CR0_PE) {
+		/* XXX: should check EFER.LME */
+		if ((vme->rip >> 32) == 0xffffffff) {
+			/* XXX: need to implement guest vaddr to guest paddr 
+			        function which references guest page table */
+			uint32_t eip = (uint32_t)vme->rip;
+			/* Because FreeBSD/amd64 kernel code area starts from 
+			   0x80000000, and it translates to 0x00000000 */
+			if (!(eip & 0x80000000))
+				skip_trace = 1;
+			else
+				eip &= ~(0x80000000);
+			ud_set_pc(&ud_obj, eip);
+			ud_set_mode(&ud_obj, 32);
+			ud_set_input_buffer(&ud_obj, paddr_guest2host(eip), 16);
+			mode = 32;
+		}else{
+			skip_trace = 1;
+			mode = 64;
+		}
+	} else {
+		uint16_t ip = (uint16_t)vme->rip;
+		ud_set_pc(&ud_obj, ip);
+		ud_set_mode(&ud_obj, 16);
+		ud_set_input_buffer(&ud_obj, paddr_guest2host(ip), 16);
+		mode = 16;
+	}
+	ud_disassemble(&ud_obj);
+
+	fprintf(trace_log, "%dbit rip:%lx rflags:%lx rsp:%lx",
+			mode, vme->rip, rflags, rsp);
+	fprintf(trace_log, " rax:%lx rbx:%lx rcx:%lx rdx:%lx cs:%lx ds:%lx ss:%lx",
+			rax, rbx, rcx, rdx, cs, ds, ss);
+	fprintf(trace_log, " insn:%s\n",
+		skip_trace ? "skip" : ud_insn_asm(&ud_obj));
+
+	return (VMEXIT_CONTINUE);
+}
+
+static int
 vmexit_vmx(struct vmctx *ctx, struct vm_exit *vmexit, int *pvcpu)
 {
 
@@ -514,6 +595,7 @@ static vmexit_handler_t handler[VM_EXITCODE_MAX] = {
 	[VM_EXITCODE_MTRAP]  = vmexit_mtrap,
 	[VM_EXITCODE_PAGING] = vmexit_paging,
 	[VM_EXITCODE_SPINUP_AP] = vmexit_spinup_ap,
+	[VM_EXITCODE_EXCEPTION] = vmexit_exception,
 };
 
 static void
@@ -605,7 +687,7 @@ main(int argc, char *argv[])
 	guest_ncpus = 1;
 	ioapic = 0;
 
-	while ((c = getopt(argc, argv, "abehABHIPxp:g:c:z:s:S:n:m:M:")) != -1) {
+	while ((c = getopt(argc, argv, "abehABHIPxTp:g:c:z:s:S:n:m:M:")) != -1) {
 		switch (c) {
 		case 'a':
 			disable_x2apic = 1;
@@ -621,6 +703,9 @@ main(int argc, char *argv[])
 			break;
 		case 'x':
 			guest_vcpu_mux = 1;
+			break;
+		case 'T':
+			trace_on = 1;
 			break;
 		case 'p':
 			pincpu = atoi(optarg);
@@ -764,6 +849,19 @@ main(int argc, char *argv[])
 		assert(error == 0);
 	}
 
+	if (trace_on) {
+		uint64_t rflags;
+		error = vm_set_exception_bitmap(ctx, BSP, 1 << IDT_DB);
+		assert(error == 0);
+		error = vm_get_register(ctx, BSP, VM_REG_GUEST_RFLAGS, &rflags);
+		assert(error == 0);
+		rflags |= 0x100; /* Trap Flag */
+		error = vm_set_register(ctx, BSP, VM_REG_GUEST_RFLAGS, rflags);
+		assert(error == 0);
+		trace_log = fopen("bhyvetrace.log", "w");
+		assert(trace_log);
+	}
+
 	/*
 	 * build the guest tables, MP etc.
 	 */
@@ -783,6 +881,9 @@ main(int argc, char *argv[])
 	 * Head off to the main event dispatch loop
 	 */
 	mevent_dispatch();
+
+	if (trace_on)
+		fclose(trace_log);
 
 	exit(1);
 }
