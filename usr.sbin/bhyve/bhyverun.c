@@ -898,6 +898,8 @@ main(int argc, char *argv[])
 		uint64_t rflags;
 		error = vm_set_exception_bitmap(ctx, BSP, 1 << IDT_DB);
 		assert(error == 0);
+		error = vm_enable_bs(ctx, BSP);
+		assert(error == 0);
 		error = vm_get_register(ctx, BSP, VM_REG_GUEST_RFLAGS, &rflags);
 		assert(error == 0);
 		rflags |= 0x100; /* Trap Flag */
