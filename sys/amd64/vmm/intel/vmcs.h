@@ -60,6 +60,7 @@ int	vmcs_setdesc(struct vmcs *vmcs, int ident,
 		     struct seg_desc *desc);
 uint64_t vmcs_read(uint32_t encoding);
 int	vmcs_setexcbitmap(struct vmcs *vmcs, uint32_t bits);
+int	vmcs_enablebs(struct vmcs *vmcs);
 
 #define	vmexit_instruction_length()	vmcs_read(VMCS_EXIT_INSTRUCTION_LENGTH)
 #define	vmcs_guest_rip()		vmcs_read(VMCS_GUEST_RIP)

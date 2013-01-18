@@ -66,6 +66,7 @@ typedef int	(*vmi_inject_event_t)(void *vmi, int vcpu,
 typedef int	(*vmi_get_cap_t)(void *vmi, int vcpu, int num, int *retval);
 typedef int	(*vmi_set_cap_t)(void *vmi, int vcpu, int num, int val);
 typedef int	(*vmi_set_exc_bitmap_t)(void *vmi, int vcpu, uint32_t bits);
+typedef int	(*vmi_enable_bs_t)(void *vmi, int vcpu);
 
 struct vmm_ops {
 	vmm_init_func_t		init;		/* module wide initialization */
@@ -84,6 +85,7 @@ struct vmm_ops {
 	vmi_get_cap_t		vmgetcap;
 	vmi_set_cap_t		vmsetcap;
 	vmi_set_exc_bitmap_t	vmsetexcbitmap;
+	vmi_enable_bs_t		vmenablebs;
 };
 
 extern struct vmm_ops vmm_ops_intel;
@@ -122,6 +124,7 @@ void vm_activate_cpu(struct vm *vm, int vcpu);
 cpuset_t vm_active_cpus(struct vm *vm);
 struct vm_exit *vm_exitinfo(struct vm *vm, int vcpuid);
 int vm_set_exception_bitmap(struct vm *vm, int vcpu, uint32_t bits);
+int vm_enable_bs(struct vm *vm, int vcpu);
 
 /*
  * Return 1 if device indicated by bus/slot/func is supposed to be a

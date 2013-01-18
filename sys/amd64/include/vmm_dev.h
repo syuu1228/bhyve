@@ -145,6 +145,10 @@ struct vm_exc_bitmap {
 	uint32_t		bits;
 };
 
+struct vm_enable_bs {
+	int			cpuid;
+};
+
 enum {
 	IOCNUM_RUN,
 	IOCNUM_SET_PINNING,
@@ -170,6 +174,7 @@ enum {
 	IOCNUM_SET_X2APIC_STATE,
 	IOCNUM_GET_X2APIC_STATE,
 	IOCNUM_SET_EXCEPTION_BITMAP,
+	IOCNUM_ENABLE_BS,
 };
 
 #define	VM_RUN		\
@@ -220,4 +225,6 @@ enum {
 	_IOWR('v', IOCNUM_GET_X2APIC_STATE, struct vm_x2apic)
 #define VM_SET_EXCEPTION_BITMAP \
 	_IOW('v', IOCNUM_SET_EXCEPTION_BITMAP, struct vm_exc_bitmap)
+#define VM_ENABLE_BS \
+	_IOW('v', IOCNUM_ENABLE_BS, struct vm_enable_bs)
 #endif

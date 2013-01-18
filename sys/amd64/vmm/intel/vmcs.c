@@ -566,4 +566,23 @@ done:
 	return (error);
 }
 
+int
+vmcs_enablebs(struct vmcs *vmcs)
+{
+	uint64_t pend, dbgctl;
+	int error;
 
+	VMPTRLD(vmcs);
+	if ((error = vmread(VMCS_GUEST_PENDING_DBG_EXCEPTIONS, &pend)) != 0)
+		goto done;
+	pend |= (1UL << 14); /* BS */
+	error = vmwrite(VMCS_GUEST_PENDING_DBG_EXCEPTIONS, pend);
+	if ((error = vmread(VMCS_GUEST_IA32_DEBUGCTL, &dbgctl)) != 0)
+		goto done;
+	dbgctl &= ~(1UL << 1); /* BTF */
+	error = vmwrite(VMCS_GUEST_IA32_DEBUGCTL, dbgctl);
+
+done:
+	VMCLEAR(vmcs);
+	return (error);
+}
