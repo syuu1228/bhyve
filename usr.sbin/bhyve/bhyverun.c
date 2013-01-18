@@ -563,6 +563,8 @@ vmexit_paging(struct vmctx *ctx, struct vm_exit *vmexit, int *pvcpu)
 static int
 vmexit_hypercall(struct vmctx *ctx, struct vm_exit *vmexit, int *pvcpu)
 {
+	uint64_t rflags;
+	int error;
 	int intno = (vmexit->rip - 0x400) / 0x4;
 
 	if (!bios_mode) {
@@ -576,7 +578,13 @@ vmexit_hypercall(struct vmctx *ctx, struct vm_exit *vmexit, int *pvcpu)
 			intno, vmexit->rip);
 		return (VMEXIT_ABORT);
 	}
-		
+
+	error = vm_get_register(ctx, *pvcpu, VM_REG_GUEST_RFLAGS, &rflags);
+	assert(error == 0);
+	rflags |= 0x100; /* Trap Flag */
+	error = vm_set_register(ctx, *pvcpu, VM_REG_GUEST_RFLAGS, rflags);
+	assert(error == 0);
+
 	return (VMEXIT_CONTINUE);
 }
 
