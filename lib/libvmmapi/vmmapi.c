@@ -736,3 +736,15 @@ vm_set_exception_bitmap(struct vmctx *ctx, int vcpu, uint32_t bits)
 	return (error);
 }
 
+int
+vm_enable_bs(struct vmctx *ctx, int vcpu)
+{
+	int error;
+	struct vm_enable_bs en_bs;
+
+	bzero(&en_bs, sizeof(en_bs));
+	en_bs.cpuid = vcpu;
+
+	error = ioctl(ctx->fd, VM_ENABLE_BS, &en_bs);
+	return (error);
+}

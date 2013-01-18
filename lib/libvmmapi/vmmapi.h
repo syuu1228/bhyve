@@ -110,4 +110,5 @@ int	vm_setup_bios_registers(struct vmctx *ctx, int vcpu);
 
 
 int	vm_set_exception_bitmap(struct vmctx *ctx, int vcpu, uint32_t bits);
+int	vm_enable_bs(struct vmctx *ctx, int vcpu);
 #endif	/* _VMMAPI_H_ */
